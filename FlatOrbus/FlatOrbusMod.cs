@@ -45,10 +45,9 @@ namespace FlatOrbus
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("Flat desktop controls loaded. F8 toggles the mode.");
+            LoggerInstance.Msg("Flat desktop controls loaded and enabled. P or F8 toggles the mode.");
             _originalXrEnabled = ReadXrEnabled();
-            SetCursor(false);
-            SetXrEnabled(false);
+            SetEnabled(true);
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -71,7 +70,7 @@ namespace FlatOrbus
 
         public override void OnUpdate()
         {
-            if (Input.GetKeyDown(KeyCode.F8))
+            if (Input.GetKeyDown(KeyCode.F8) || Input.GetKeyDown(KeyCode.P))
                 SetEnabled(!_enabled);
 
             if (Input.GetKeyDown(KeyCode.F1))
@@ -117,17 +116,31 @@ namespace FlatOrbus
 
         public override void OnGUI()
         {
-            const float width = 220f;
-            const float height = 34f;
+            int previousDepth = GUI.depth;
+            Color previousBackground = GUI.backgroundColor;
+            Color previousContent = GUI.contentColor;
+            GUI.depth = -10000;
+            GUI.contentColor = Color.white;
+            GUI.backgroundColor = _enabled ? new Color(0.12f, 0.48f, 0.24f, 1f) : new Color(0.42f, 0.16f, 0.16f, 1f);
+
+            const float width = 250f;
+            const float height = 42f;
             var rect = new Rect(Screen.width - width - 12f, 12f, width, height);
-            string label = _enabled ? "FLATSCREEN: ON  [F8]" : "FLATSCREEN: OFF  [F8]";
+            string label = _enabled ? "FLATSCREEN: ON  [P / F8]" : "FLATSCREEN: OFF  [P / F8]";
             if (GUI.Button(rect, label))
                 SetEnabled(!_enabled);
+
+            // A second, fixed status badge makes it obvious the mod/UI loaded even
+            // when the top-right button is outside a cropped or unusually sized view.
+            GUI.backgroundColor = new Color(0.08f, 0.08f, 0.08f, 0.88f);
+            GUI.Box(new Rect(12f, 12f, 230f, 34f), _enabled ? "FlatOrbus active · P toggles" : "FlatOrbus paused · P toggles");
+            GUI.backgroundColor = previousBackground;
+            GUI.contentColor = previousContent;
 
             if (_enabled && _showHelp)
             {
                 var help = new Rect(Screen.width - 278f, 54f, 266f, 204f);
-                GUI.Box(help, "FlatOrbus controls\nWASD move · mouse look (RMB)\nB / middle mouse: backpack\nH: move hands · Tab: select hand\nF1 help · Esc release · F8 toggle");
+                GUI.Box(help, "FlatOrbus controls\nWASD move · mouse look (RMB)\nB / middle mouse: backpack\nH: move hands · Tab: select hand\nF1 help · Esc release · P/F8 toggle");
                 if (GUI.Button(new Rect(help.x + 8f, help.y + 116f, help.width - 16f, 27f),
                     _handMoveMode ? "Hand movement: ON" : "Hand movement: OFF"))
                     _handMoveMode = !_handMoveMode;
@@ -147,6 +160,8 @@ namespace FlatOrbus
             // the Unity EventSystem below, so the overlay does not replace game menus.
             if (_enabled && !_cursorCaptured)
                 DrawCrosshair();
+
+            GUI.depth = previousDepth;
         }
 
         private void SetEnabled(bool value)
@@ -369,9 +384,11 @@ namespace FlatOrbus
         {
             Vector3 mouse = Input.mousePosition;
             float guiY = Screen.height - mouse.y;
-            if (new Rect(Screen.width - 232f, 12f, 220f, 34f).Contains(new Vector2(mouse.x, guiY)))
+            var point = new Vector2(mouse.x, guiY);
+            if (new Rect(Screen.width - 262f, 12f, 250f, 42f).Contains(point) ||
+                new Rect(12f, 12f, 230f, 34f).Contains(point))
                 return true;
-            return _showHelp && _enabled && new Rect(Screen.width - 278f, 54f, 266f, 204f).Contains(new Vector2(mouse.x, guiY));
+            return _showHelp && _enabled && new Rect(Screen.width - 278f, 54f, 266f, 204f).Contains(point);
         }
 
         private void UpdateHandMovement()

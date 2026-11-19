@@ -4,7 +4,7 @@ A MelonLoader **IL2CPP** plugin prototype that adds mouse/keyboard controls and 
 
 ## Current controls
 
-- **Top-right button** or **F8** — enable/disable desktop mode.
+- Desktop mode starts enabled. The **top-right button**, **P**, or **F8** — enable/disable it. A top-left status badge confirms the mod loaded.
 - **WASD** — move the local player in the direction the view faces; hold **Shift** to move faster.
 - **Right mouse button** — capture/release the mouse for mouselook. **Esc** releases it.
 - **B** or **middle mouse** — open/close Orbus' backpack via `InventoryManager.Open/Close`.
