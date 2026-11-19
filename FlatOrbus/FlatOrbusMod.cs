@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Il2CppRaycastList = Il2CppSystem.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -35,7 +36,7 @@ namespace FlatOrbus
         private GameObject _pointerOver;
         private GameObject _pointerPress;
         private PointerEventData _pointerData;
-        private readonly List<RaycastResult> _raycastResults = new List<RaycastResult>();
+        private readonly Il2CppRaycastList _raycastResults = new Il2CppRaycastList();
         private float _nextRigSearch;
         private bool _lastLeftDown;
         private bool _lastLeftUp;
@@ -216,19 +217,12 @@ namespace FlatOrbus
                 if (camera != null)
                     _view = camera.transform;
 
-                Type playerType = FindType("Il2CppMagicalActual.PlayerCharacter");
-                if (playerType != null)
+                List<MonoBehaviour> players = FindBehavioursByTypeName("Il2CppMagicalActual.PlayerCharacter");
+                if (players.Count > 0)
                 {
-                    UnityEngine.Object[] players = UnityEngine.Object.FindObjectsOfType(playerType);
-                    if (players != null && players.Length > 0)
-                    {
-                        Component player = players[0] as Component;
-                        if (player != null)
-                        {
-                            _playerRoot = player.transform;
-                            _characterController = player.GetComponent<CharacterController>();
-                        }
-                    }
+                    UnityEngine.Component player = players[0];
+                    _playerRoot = player.transform;
+                    _characterController = player.GetComponent<CharacterController>();
                 }
 
                 // Fallback for scenes where the local PlayerCharacter component is not
@@ -330,9 +324,6 @@ namespace FlatOrbus
                         ExecuteEvents.Execute(_pointerOver, _pointerData, ExecuteEvents.pointerEnterHandler);
                 }
 
-                if (_pointerOver != null)
-                    ExecuteEvents.Execute(_pointerOver, _pointerData, ExecuteEvents.pointerMoveHandler);
-
                 if (_lastLeftDown)
                 {
                     _pointerPress = _pointerOver;
@@ -423,22 +414,18 @@ namespace FlatOrbus
         {
             try
             {
-                Type grabberType = FindType("Il2CppMagicalActual.Grabber");
-                if (grabberType == null || _view == null)
+                if (_view == null)
                     return;
-                UnityEngine.Object[] grabbers = UnityEngine.Object.FindObjectsOfType(grabberType);
-                if (grabbers == null)
-                    return;
-                foreach (UnityEngine.Object item in grabbers)
+                List<MonoBehaviour> grabbers = FindBehavioursByTypeName("Il2CppMagicalActual.Grabber");
+                foreach (MonoBehaviour item in grabbers)
                 {
-                    Component component = item as Component;
-                    if (component == null || _localHands.Contains(component.transform))
+                    if (item == null || _localHands.Contains(item.transform))
                         continue;
-                    PropertyInfo localProperty = grabberType.GetProperty("isLocalGrabber", BindingFlags.Public | BindingFlags.Instance);
+                    PropertyInfo localProperty = item.GetType().GetProperty("isLocalGrabber", BindingFlags.Public | BindingFlags.Instance);
                     if (localProperty != null && !Convert.ToBoolean(localProperty.GetValue(item)))
                         continue;
-                    _localHands.Add(component.transform);
-                    _handOffsets.Add(_view.InverseTransformPoint(component.transform.position));
+                    _localHands.Add(item.transform);
+                    _handOffsets.Add(_view.InverseTransformPoint(item.transform.position));
                 }
             }
             catch (Exception ex)
@@ -451,19 +438,14 @@ namespace FlatOrbus
         {
             try
             {
-                Type inventoryType = FindType("Il2CppMagicalActual.InventoryManager");
-                if (inventoryType == null)
-                {
-                    LoggerInstance.Warning("Could not find Orbus InventoryManager in the loaded game assemblies.");
-                    return;
-                }
-                UnityEngine.Object[] managers = UnityEngine.Object.FindObjectsOfType(inventoryType);
-                if (managers == null || managers.Length == 0)
+                List<MonoBehaviour> managers = FindBehavioursByTypeName("Il2CppMagicalActual.InventoryManager");
+                if (managers.Count == 0)
                 {
                     LoggerInstance.Warning("Backpack manager is not ready in this scene.");
                     return;
                 }
-                object manager = managers[0];
+                MonoBehaviour manager = managers[0];
+                Type inventoryType = manager.GetType();
                 bool open = false;
                 PropertyInfo isOpen = inventoryType.GetProperty("isOpen", BindingFlags.Public | BindingFlags.Instance);
                 if (isOpen != null)
@@ -477,15 +459,15 @@ namespace FlatOrbus
             }
         }
 
-        private static Type FindType(string fullName)
+        private static List<MonoBehaviour> FindBehavioursByTypeName(string fullName)
         {
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            var matches = new List<MonoBehaviour>();
+            foreach (MonoBehaviour behaviour in UnityEngine.Object.FindObjectsOfType<MonoBehaviour>())
             {
-                Type type = assembly.GetType(fullName, false);
-                if (type != null)
-                    return type;
+                if (behaviour != null && behaviour.GetType().FullName == fullName)
+                    matches.Add(behaviour);
             }
-            return null;
+            return matches;
         }
 
         private static void DrawCrosshair()
